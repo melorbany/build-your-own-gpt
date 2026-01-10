@@ -1,0 +1,18 @@
+# Core
+numpy>=1.26,<3.0        # NumPy 2.0 is now widely supported; 1.26 is the bridge version
+pyyaml>=6.0.1           # 6.0.1 fixes critical build issues on newer Cython/Python versions
+
+# Data download / HF datasets
+datasets>=3.0,<4.0      # Datasets 3.0 is the current stable major version
+tqdm>=4.66,<5.0         # Remains stable
+
+# Tokenizer training (BPE)
+tokenizers>=0.19,<1.0   # Tokenizers is approaching 1.0 stability
+
+# Training (CPU or GPU)
+torch>=2.4,<3.0         # Torch 2.4+ includes significant compile and performance improvements
+
+# Optional (nice-to-have)
+# rich>=13.7,<14.0
+# tensorboard>=2.17,<3.0
+# pytest>=8.2,<9.0

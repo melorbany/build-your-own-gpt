@@ -1,0 +1,95 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+share/python-wheels/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+wheelhouse/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Type checking / linting
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+runs/
+
+# =========================
+# Data & artifacts (this project)
+# =========================
+data/raw/
+data/interim/
+data/processed/
+data/external/
+
+# Model checkpoints & outputs
+checkpoints/
+outputs/
+artifacts/
+
+# Tokenizer artifacts (if you keep them in data/processed, they're already ignored)
+tokenizer.json
+tokenizer_meta.json
+
+# Large binaries
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.npz
+*.npy
+
+# =========================
+# HuggingFace / datasets caches
+# =========================
+.huggingface/
+hf_cache/
+datasets_cache/
+cache/
+**/.cache/
+**/.huggingface/
+
+# =========================
+# Optional: local config overrides
+# =========================
+config.local.yaml
+configs/local.yaml
+.env

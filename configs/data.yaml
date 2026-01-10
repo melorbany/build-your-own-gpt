@@ -1,0 +1,14 @@
+project:
+  root: .
+
+data:
+  raw_dir: data/raw
+
+download:
+  tinystories:
+    enabled: true
+    dataset_name: "roneneldan/TinyStories"
+    split: "train"          # train | validation | test
+    text_field: "text"
+    out_file: "tinystories_train.jsonl"
+    limit: null             # set e.g. 2000 for quick test
