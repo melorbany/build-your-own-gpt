@@ -1,0 +1,25 @@
+project:
+  root: .
+
+data:
+  raw_file: data/raw/tinystories_train.jsonl
+  interim_dir: data/interim
+  out_file: tinystories_train.cleaned.jsonl
+
+clean:
+  # Keep the original text field and write cleaned text to "text_clean"
+  input_text_field: text
+  output_text_field: text_clean
+
+  # Cleaning behavior
+  strip: true
+  normalize_newlines: true
+  rstrip_lines: true
+  max_consecutive_newlines: 2
+
+  # Filtering
+  drop_empty: true
+  min_chars: 1
+
+  # Optional: limit for debugging
+  limit: null
