@@ -1,0 +1,27 @@
+project:
+  root: .
+
+data:
+  input_file: data/interim/tinystories_train.cleaned.jsonl
+  text_field: text_clean
+
+tokenizer:
+  out_dir: artifacts/tokenizer
+  name: tinystories_bpe
+
+  # core training params
+  vocab_size: 16000
+  min_frequency: 2
+
+  # special tokens
+  special_tokens:
+    - "[PAD]"
+    - "[UNK]"
+    - "[BOS]"
+    - "[EOS]"
+
+  # normalizer / pre-tokenization
+  lowercase: false
+
+  # Optional: for fast experiments
+  limit: null   # e.g. 50000
