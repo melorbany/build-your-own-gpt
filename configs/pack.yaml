@@ -1,0 +1,24 @@
+project:
+  root: .
+
+data:
+  input_file: data/interim/tinystories_train.cleaned.jsonl
+  text_field: text_clean
+
+tokenizer:
+  file: artifacts/tokenizer/tinystories_bpe.json
+
+packing:
+  out_dir: data/processed
+  name: tinystories_train
+
+  # training sequence length (tokens). Common: 256/512/1024
+  seq_len: 512
+
+  # If true, concatenate all texts with EOS between docs then chunk.
+  # This is the common GPT approach.
+  concat_docs: true
+  add_eos_between_docs: true
+
+  # Optional: limit number of input rows for debugging
+  limit_rows: null
