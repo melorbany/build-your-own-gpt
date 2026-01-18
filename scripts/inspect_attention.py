@@ -2,46 +2,31 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass
+from pathlib import Path
 
 import torch
+from tokenizers import Tokenizer  # pip install tokenizers
+
+from src.models.attention import AttentionConfig, CausalSelfAttention
 
 
-def simple_tokenize(text: str) -> list[str]:
-    # Minimal, deterministic tokenizer for debugging only.
-    # Later you can swap this with your real tokenizer without changing the QKV inspection logic.
-    return text.strip().split()
-
-
-def build_vocab(tokens: list[str]) -> dict[str, int]:
-    vocab = {"<pad>": 0, "<unk>": 1}
-    for t in tokens:
-        if t not in vocab:
-            vocab[t] = len(vocab)
-    return vocab
-
-
-def _find_qkv_linear(attn_module):
-    # Common names used in GPT-like implementations
-    if hasattr(attn_module, "qkv"):
-        return attn_module.qkv
-    if hasattr(attn_module, "c_attn"):
-        return attn_module.c_attn
-    raise AttributeError("Could not find QKV projection on attention module (expected .qkv or .c_attn)")
-
-
+@torch.no_grad()
 def main() -> int:
-    p = argparse.ArgumentParser(description="Inspect Q,K,V for a text input using CausalSelfAttention.")
+    p = argparse.ArgumentParser(
+        description="Phase 5.2: inspect Q/K/V (and attention) for a given text using your CausalSelfAttention."
+    )
+    p.add_argument("--tokenizer-json", type=str, required=True, help="Tokenizer JSON produced by tokenization/train_tokenizer.py")
     p.add_argument("--text", type=str, default="", help="Text to inspect. If empty, read from stdin.")
+
     p.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"])
     p.add_argument("--seed", type=int, default=0)
 
     p.add_argument("--d-model", type=int, default=64)
     p.add_argument("--n-heads", type=int, default=4)
 
-    p.add_argument("--head", type=int, default=0, help="Which head to print.")
-    p.add_argument("--preview", type=int, default=8, help="How many values of each vector to print.")
-    p.add_argument("--show-attn", action="store_true", help="Also print attention probabilities per token (chosen head).")
+    p.add_argument("--head", type=int, default=0, help="Which head to print")
+    p.add_argument("--preview", type=int, default=8, help="How many values to print from each vector")
+    p.add_argument("--show-attn", action="store_true", help="Also print attention probabilities for the selected head")
 
     args = p.parse_args()
 
@@ -51,7 +36,7 @@ def main() -> int:
         return 2
 
     if args.d_model % args.n_heads != 0:
-        print("Error: d-model must be divisible by n-heads", file=sys.stderr)
+        print("Error: --d-model must be divisible by --n-heads", file=sys.stderr)
         return 2
 
     device = torch.device(args.device)
@@ -59,94 +44,85 @@ def main() -> int:
     if device.type == "cuda":
         torch.cuda.manual_seed_all(args.seed)
 
-    # Import attention only (Phase 5.1)
-    try:
-        from src.models.attention import AttentionConfig, CausalSelfAttention
-    except Exception as e:
-        print("Import failed: expected src/models/attention.py with AttentionConfig, CausalSelfAttention", file=sys.stderr)
-        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+    # Load tokenizer artifact
+    tok_path = Path(args.tokenizer_json)
+    if not tok_path.exists():
+        print(f"Tokenizer JSON not found: {tok_path}", file=sys.stderr)
         return 2
 
-    tokens = simple_tokenize(text)
-    vocab = build_vocab(tokens)
-    ids = [vocab.get(t, vocab["<unk>"]) for t in tokens]
-
+    tokenizer = Tokenizer.from_file(str(tok_path))
+    enc = tokenizer.encode(text)
+    ids = enc.ids
+    tokens = enc.tokens
     T = len(ids)
     if T == 0:
-        print("Tokenization produced zero tokens.", file=sys.stderr)
+        print("Tokenizer produced zero tokens.", file=sys.stderr)
         return 2
 
-    # Token embeddings (debug-only)
-    # Later: replace this embedding with your real model's embedding lookup.
-    emb = torch.nn.Embedding(num_embeddings=len(vocab), embedding_dim=args.d_model).to(device)
+    vocab_size = tokenizer.get_vocab_size()
 
-    x_ids = torch.tensor(ids, dtype=torch.long, device=device).unsqueeze(0)  # (1,T)
-    x = emb(x_ids)  # (1,T,C)
+    # Phase 5.2 scaffold: random embedding table
+    # (Later, replace with your model's learned embeddings.)
+    tok_emb = torch.nn.Embedding(vocab_size, args.d_model).to(device)
 
-    cfg = AttentionConfig(
-        d_model=args.d_model,
-        n_heads=args.n_heads,
-        dropout=0.0,
-        bias=True,
-    )
+    # Your attention module (Phase 5.1)
+    cfg = AttentionConfig(d_model=args.d_model, n_heads=args.n_heads, dropout=0.0, bias=True)
     attn = CausalSelfAttention(cfg).to(device).eval()
 
-    # Compute Q,K,V from the module's qkv projection directly
-    qkv_linear = _find_qkv_linear(attn)
+    ids_t = torch.tensor(ids, dtype=torch.long, device=device).unsqueeze(0)  # (1,T)
+    x = tok_emb(ids_t)  # (1,T,C)
 
-    with torch.no_grad():
-        qkv = qkv_linear(x)  # (1,T,3C)
-        B, T, threeC = qkv.shape
-        C = threeC // 3
-        q, k, v = qkv.split(C, dim=-1)  # each (1,T,C)
+    # ---- Compute Q, K, V using the known .qkv layer from your attention.py ----
+    qkv = attn.qkv(x)  # (1,T,3C)
+    C = args.d_model
+    q, k, v = qkv.split(C, dim=-1)  # each (1,T,C)
 
     nh = args.n_heads
-    hs = args.d_model // nh
+    hs = C // nh
 
-    # reshape to (T, nh, hs)
+    # reshape to (T, nh, hs) for easy printing
     q = q.view(1, T, nh, hs)[0]
     k = k.view(1, T, nh, hs)[0]
     v = v.view(1, T, nh, hs)[0]
 
+    # optional: get attention probs from the module (uses its internal causal mask cache)
+    att_probs = None
+    if args.show_attn:
+        _, att = attn(x, return_attn=True)  # (1, nh, T, T)
+        att_probs = att[0]  # (nh, T, T)
+
     head = max(0, min(args.head, nh - 1))
     n = max(1, min(args.preview, hs))
 
+    # ---- Display ----
     print("== Input ==")
     print(f"text: {text!r}")
-    print(f"T={T}  d_model={args.d_model}  n_heads={nh}  head_dim={hs}")
-    print("\nTokens:")
+    print(f"T={T} vocab_size={vocab_size} d_model={C} n_heads={nh} head_dim={hs}\n")
+
+    print("Tokens / IDs:")
     for i, (t, id_) in enumerate(zip(tokens, ids)):
         print(f"  {i:02d}: {t!r} -> id={id_}")
 
-    print(f"\n== Vector previews (head={head}) ==")
+    print("\n== Shapes ==")
+    print(f"x (embeddings): {tuple(x.shape)}")
+    print(f"q: {tuple(q.shape)}  k: {tuple(k.shape)}  v: {tuple(v.shape)}")
+
+    print(f"\n== Q/K/V detail (head={head}, first {n} values) ==")
     for i, t in enumerate(tokens):
-        emb_prev = x[0, i, :n].detach().cpu().tolist()
-        q_prev = q[i, head, :n].detach().cpu().tolist()
-        k_prev = k[i, head, :n].detach().cpu().tolist()
-        v_prev = v[i, head, :n].detach().cpu().tolist()
-        print(f"\nToken {i:02d} {t!r}:")
-        print(f"  emb[:{n}] = {emb_prev}")
-        print(f"  Q[:{n}]   = {q_prev}")
-        print(f"  K[:{n}]   = {k_prev}")
-        print(f"  V[:{n}]   = {v_prev}")
+        qi = q[i, head, :n].detach().cpu().tolist()
+        ki = k[i, head, :n].detach().cpu().tolist()
+        vi = v[i, head, :n].detach().cpu().tolist()
+        print(f"\nToken {i:02d} {t!r}")
+        print(f"  Q[:{n}] = {qi}")
+        print(f"  K[:{n}] = {ki}")
+        print(f"  V[:{n}] = {vi}")
 
-    if args.show_attn:
-        # We can also compute attention probs for the chosen head from Q,K (scaled dot-prod + causal mask)
-        with torch.no_grad():
-            # (T, hs)
-            Q = q[:, head, :]
-            K = k[:, head, :]
-            scores = (Q @ K.t()) * (hs ** -0.5)  # (T,T)
-
-            causal = torch.tril(torch.ones(T, T, device=device, dtype=torch.bool))
-            scores = scores.masked_fill(~causal, float("-inf"))
-            probs = torch.softmax(scores, dim=-1).detach().cpu()  # (T,T)
-
-        print(f"\n== Attention probs (head={head}) ==")
-        for i, tok in enumerate(tokens):
-            row = probs[i].tolist()
-            # show full row; future positions should be ~0
-            print(f"query {i:02d} {tok!r}: {row}")
+    if att_probs is not None:
+        print(f"\n== Attention probabilities (head={head}) ==")
+        probs = att_probs[head].detach().cpu()  # (T,T)
+        for i, t in enumerate(tokens):
+            # Future positions should be ~0 because of the causal mask.
+            print(f"query {i:02d} {t!r}: {probs[i].tolist()}")
 
     return 0
 
