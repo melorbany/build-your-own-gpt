@@ -96,17 +96,18 @@ def pack_jsonl_to_bin(
                 if cfg.add_eos_between_docs:
                     buffer.append(eos_id)
 
-                while len(buffer) >= seq_len:
-                    seq = buffer[:seq_len]
+                # Store seq_len+1 tokens so bin_dataset can produce x=seq[:-1], y=seq[1:]
+                while len(buffer) >= seq_len + 1:
+                    seq = buffer[:seq_len + 1]
                     flush_sequence(seq, f_bin)
-                    buffer = buffer[seq_len:]
+                    buffer = buffer[seq_len + 1:]
             else:
-                # One doc => chunk into sequences; drop remainder < seq_len
+                # One doc => chunk into sequences; drop remainder < seq_len+1
                 n_docs += 1
                 i = 0
-                while i + seq_len <= len(ids):
-                    flush_sequence(ids[i : i + seq_len], f_bin)
-                    i += seq_len
+                while i + seq_len + 1 <= len(ids):
+                    flush_sequence(ids[i : i + seq_len + 1], f_bin)
+                    i += seq_len + 1
 
             if n_rows % 50000 == 0:
                 log.info(
@@ -114,7 +115,7 @@ def pack_jsonl_to_bin(
                     n_rows, n_docs, n_sequences, n_tokens_total
                 )
 
-        # Optionally drop remainder buffer (< seq_len). (Common choice)
+        # Optionally drop remainder buffer (< seq_len+1). (Common choice)
         log.info("Finished tokenization. Dropping remainder buffer of %d tokens.", len(buffer))
 
     # Write idx offsets

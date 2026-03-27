@@ -19,7 +19,7 @@ def hex_bytes(b: bytes) -> str:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Phase 4 tokenizer CLI: text -> tokens + ids (+ static embedding bytes)")
+    p = argparse.ArgumentParser(description="Tokenizer CLI: text -> tokens + ids (+ static embedding bytes)")
     p.add_argument("--tokenizer", type=str, default="artifacts/tokenizer/tinystories_bpe.json")
     p.add_argument("--text", type=str, default="", help="If omitted, reads from stdin.")
     p.add_argument("--max-tokens", type=int, default=256)

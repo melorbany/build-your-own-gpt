@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import torch
-from tokenizers import Tokenizer  # pip install tokenizers
+from tokenizers import Tokenizer
 
 from src.models.attention import AttentionConfig, CausalSelfAttention
 
@@ -13,7 +13,7 @@ from src.models.attention import AttentionConfig, CausalSelfAttention
 @torch.no_grad()
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Phase 5.2: inspect Q/K/V (and attention) for a given text using your CausalSelfAttention."
+        description="Inspect Q/K/V (and attention) for a given text using your CausalSelfAttention."
     )
     p.add_argument("--tokenizer-json", type=str, required=True, help="Tokenizer JSON produced by tokenization/train_tokenizer.py")
     p.add_argument("--text", type=str, default="", help="Text to inspect. If empty, read from stdin.")
@@ -61,11 +61,11 @@ def main() -> int:
 
     vocab_size = tokenizer.get_vocab_size()
 
-    # Phase 5.2 scaffold: random embedding table
+    # scaffold: random embedding table
     # (Later, replace with your model's learned embeddings.)
     tok_emb = torch.nn.Embedding(vocab_size, args.d_model).to(device)
 
-    # Your attention module (Phase 5.1)
+    # Your attention module
     cfg = AttentionConfig(d_model=args.d_model, n_heads=args.n_heads, dropout=0.0, bias=True)
     attn = CausalSelfAttention(cfg).to(device).eval()
 

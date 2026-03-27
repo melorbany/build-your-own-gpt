@@ -32,7 +32,7 @@ class PackedBinDataset(Dataset):
     Returns (x, y) where:
       x: tokens[0:seq_len]
       y: tokens[1:seq_len+1]
-    So underlying stored sample should be seq_len tokens; we create y by shifting inside the sample.
+    Each stored sample is seq_len+1 tokens; x and y are derived by slicing without wrapping.
     """
     def __init__(self, bin_file: Path, idx_file: Path, cfg: BinDatasetConfig):
         self.bin_file = Path(bin_file)
@@ -59,12 +59,11 @@ class PackedBinDataset(Dataset):
         end = int(self.idx[i + 1])
         seq = self.ids[start:end]
 
-        if len(seq) != self.seq_len:
-            # In a correct pack, all sequences are fixed length.
-            # If not, we defensively crop/pad (but this should rarely happen).
-            seq = seq[: self.seq_len]
+        if len(seq) != self.seq_len + 1:
+            # In a correct pack, all sequences are seq_len+1 tokens.
+            # If not, defensively crop (but this should rarely happen).
+            seq = seq[: self.seq_len + 1]
 
-        x = torch.from_numpy(seq.astype(np.int64))
-        # next-token prediction within the same block: shift by 1
-        y = x.roll(-1)
+        x = torch.from_numpy(seq[:-1].astype(np.int64))
+        y = torch.from_numpy(seq[1:].astype(np.int64))
         return x, y

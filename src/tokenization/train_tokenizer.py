@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterator, Optional
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.normalizers import Lowercase, NFKC, Sequence
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.processors import TemplateProcessing
 from tokenizers.trainers import BpeTrainer
@@ -62,12 +63,14 @@ def train_bpe_tokenizer(cfg: Dict[str, Any]) -> Path:
 
     # ByteLevel pre-tokenizer gives robust handling of punctuation/whitespace.
     tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=True)
+    tokenizer.decoder = ByteLevelDecoder()
 
     trainer = BpeTrainer(
         vocab_size=vocab_size,
         min_frequency=min_frequency,
         special_tokens=special_tokens,
         show_progress=True,
+        initial_alphabet=ByteLevel.alphabet(),
     )
 
     tokenizer.train_from_iterator(
